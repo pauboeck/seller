@@ -1,43 +1,158 @@
 'use strict';
-const $=s=>document.querySelector(s), euro=n=>new Intl.NumberFormat('de-AT',{style:'currency',currency:'EUR',minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2}).format(n), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let category='Alle', amplifierOnly=false, lastFocus;
-const categoryLabels={'Alle':'Alle Bikes','Tour & Alltag':'Alltag & Ausflüge','Trail':'Touren & Waldwege','All Mountain':'Bergtouren','Enduro':'Sportliche Abfahrten'};
-const categoryIcons={'Alle':'<circle cx="8" cy="17" r="5"/><circle cx="25" cy="17" r="5"/><path d="m8 17 7-10 10 10H8l5-8M13 5h5m5 1h3l2 6"/>','Tour & Alltag':'<path d="M5 26V12l10-8 10 8v14M11 26v-8h8v8M3 26h26"/>','Trail':'<path d="m10 3-7 11h4l-5 9h16l-5-9h4L10 3m0 20v6M20 29c-3-9 9-8 4-18"/>','All Mountain':'<path d="m2 27 12-22 16 22H2m8-15 4 3 3-4m1 16 8-13 6 13"/>','Enduro':'<path d="m3 5 26 21M4 27h25M10 7l5 1 4 7m-8-2 6 4-4 5M23 8l-1 5 5 1"/>'};
-const iconFor=c=>`<svg viewBox="0 0 34 34" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${categoryIcons[c]}</svg>`;
-const sizes=p=>['S','M','L','XL'].map(s=>[s,p.options.reduce((n,o)=>n+(o.sizes[s]||0),0)]).filter(x=>x[1]);
-const selectedBikes=(cat,size,sort)=>BIKES.filter(p=>(cat==='Alle'||p.category===cat)&&(size==='all'||sizes(p).some(x=>x[0]===size))).sort((a,b)=>sort==='price'?a.price-b.price:sort==='saving'?(b.uvp-b.price)-(a.uvp-a.price):((a.model==='Hybrid Tour 5.1'?0:a.model.startsWith('Epium')?1:a.bonus?2:a.new?3:4)-(b.model==='Hybrid Tour 5.1'?0:b.model.startsWith('Epium')?1:b.bonus?2:b.new?3:4)||a.id-b.id));
-function priceBlock(p){return `<div class="offer-price"><span class="price-caption">Dein Mitarbeiterpreis</span><div class="price-line"><strong class="price">${euro(p.price)}</strong></div><div class="price-reference"><span>UVP <s>${euro(p.uvp)}</s></span><strong>${euro(p.uvp-p.price)} Preisvorteil</strong></div><span class="price-tax">inkl. 20 % USt.</span><a class="pickup-price" href="#lieferung">Bei Werksabholung: <strong>${euro(p.price-100)}</strong><span>100 € zusätzlich sparen</span></a></div>`;}
-function render(){
- const size=$('#size').value, list=selectedBikes(category,size,$('#sort').value).filter(p=>!amplifierOnly||p.new);
- $('#grid').innerHTML=list.map(p=>`<article class="card"><div class="card-image"><img src="${p.image}" alt="${esc(p.model)} – Modellabbildung" loading="lazy">${p.bonus?'<span class="tag bonus-tag-card">Dein RS-Bonus · Zusatzakku gratis</span>':p.new?'<span class="tag">Neuware · Amplifier</span>':''}</div><div class="card-body"><p class="card-kicker">${esc(categoryLabels[p.category])}</p><h3>${esc(p.model)}</h3><p class="card-variant">${esc(p.variant)} · ${esc(p.motorShort)}</p><p class="product-highlight">${esc(p.highlight)}</p>${priceBlock(p)}${p.bonus?'<div class="card-bonus"><span class="bonus-plus">+</span><div><strong>720-Wh-Zusatzakku gratis</strong><span>Zusätzlicher Warenwert: 800 €</span></div></div>':''}<div class="card-specs"><span>${esc(p.batteryShort)}</span><span>${p.count} Stück im Bestand</span>${p.torque?`<span>${esc(p.torque)}</span>`:''}</div><div class="availability">${sizes(p).map(([s,n])=>`<span class="size-chip">${s} · ${n}×</span>`).join('')}</div><button data-id="${p.id}" aria-label="${esc(p.model+' '+p.variant)} ansehen">Farbe & Größe wählen →</button></div></article>`).join('');
- $('#result-count').textContent=`${amplifierOnly?'Amplifier · ':''}${list.length} Angebote · ${list.reduce((n,p)=>n+(size==='all'?p.count:(sizes(p).find(x=>x[0]===size)?.[1]||0)),0)} Bikes in deiner Auswahl`;
- $('#empty').hidden=list.length>0;
- $('#grid').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>openBike(Number(b.dataset.id))));
-}
-function openBike(id){
- const p=BIKES.find(p=>p.id===id);lastFocus=document.activeElement;
- $('#detail-content').innerHTML=`<div class="detail-grid"><div class="detail-photo"><img id="detail-image" src="${p.image}" alt="${esc(p.model)}"><p>Abbildung ähnlich · Farbe und Ausstattung können abweichen</p></div><div class="detail-info"><p class="eyebrow">${esc(categoryLabels[p.category])}${p.new?' · NEUWARE':''}</p><h2>${esc(p.model)}</h2><p>${esc(p.variant)} · ${esc(p.motorShort)}</p><p class="detail-desc">${esc(p.description)}</p>${priceBlock(p)}<p class="source-note">Werksabholung: 100 € Preisvorteil. Persönliche Zustellung inkl. Einweisung: bis 50 km ab Werk kostenlos, über 50 km innerhalb Österreichs 100 €. Alle Beträge inkl. 20 % USt.</p>${p.bonus?'<div class="bonus-mini"><span class="bonus-kicker">DEIN RS-BONUS</span><strong>720-Wh-Zusatzakku gratis</strong><span>Im Wert von <b>800 €</b> – zusätzlich zu deinem Bike.</span></div>':''}<label for="color-choice">Verfügbare Farbe</label><select id="color-choice">${p.options.map((o,i)=>`<option value="${i}">${esc(o.color)}</option>`).join('')}</select><label for="size-choice">Verfügbare Rahmengröße</label><select id="size-choice"></select><p id="stock-label" class="stock-label"></p><a id="inquiry" class="button dark" href="mailto:info@noxcycles.com">Verfügbarkeit anfragen →</a><p class="source-note">Öffnet dein E-Mail-Programm. Eine Anfrage reserviert das Bike noch nicht.</p></div></div><div class="detail-bottom"><div class="insurance-detail-teaser"><strong>Dein Abenteuer. Gut abgesichert.</strong><p>Alteos Premiumschutz optional mitanfragen: Preisbeispiel 175 € pro Jahr bei einem neuen E-Mountainbike mit 4.000 € Kaufpreis. Prämie und Versicherbarkeit hängen von deinem Bike ab.</p><a href="#versicherung">Leistungen & Preisbeispiel ansehen →</a></div><h3>Technik im Überblick</h3><div class="technical">${Object.entries(p.specs).map(([k,v])=>`<div><span>${esc(k)}</span>${esc(v)}</div>`).join('')}</div><p class="source-note">¹ Technische Referenz: aktuelle NOX-Modellseite der genannten Ausführung. Der Sonderlagerbestand enthält ältere Baujahre; Einzelkomponenten und Hauptakku sind vor der Bestellung von NOX zu bestätigen. Der gekennzeichnete 720-Wh-Zusatzakku ist Teil des Aktionsangebots. <a href="${p.source}" target="_blank" rel="noopener">Modellinformationen bei NOX ↗</a></p></div>`;
- const c=$('#color-choice'),s=$('#size-choice');
- function updateInquiry(){const o=p.options[Number(c.value)],sz=s.value,n=o.sizes[sz];$('#stock-label').textContent=`${n} Stück in ${sz} / ${o.color} laut Aktionsbestand`;
- const body=`Hallo NOX-Team,\n\nich interessiere mich als Raiffeisen-Mitarbeiter / Familienmitglied für folgendes Angebot:\n\nModell: ${p.model}\nAusführung: ${p.variant}\nAntrieb: ${p.motorShort}\nFarbe: ${o.color}\nGröße: ${sz}\nAktionspreis: ${euro(p.price)} inkl. 20 % USt.\n${p.bonus?'Bonus: 720-Wh-Zusatzakku im Wert von 800 € gratis dazu\n':''}\nBitte bestätigt mir Verfügbarkeit, genaue Ausstattung, Zustand sowie Liefer- oder Abholmöglichkeiten.\n\nGewünschte Übergabe: Werksabholung / persönliche Zustellung\nZustelladresse (bei Zustellung):\n\nName:\nTelefon (optional):\nVielen Dank!`;
- $('#inquiry').href='mailto:info@noxcycles.com?subject='+encodeURIComponent('Raiffeisen Bike-Aktion – '+p.model+' '+p.variant)+'&body='+encodeURIComponent(body);}
- function updateColor(){const o=p.options[Number(c.value)];s.innerHTML=Object.entries(o.sizes).map(([sz,n])=>`<option value="${sz}">${sz} – ${n} Stück</option>`).join('');if(o.sizes[$('#size').value])s.value=$('#size').value;$('#detail-image').src=o.image;updateInquiry();}
- c.addEventListener('change',updateColor);s.addEventListener('change',updateInquiry);
- if($('#size').value!=='all'){const i=p.options.findIndex(o=>o.sizes[$('#size').value]);if(i>=0)c.value=i;}
- updateColor();$('#detail').showModal();
-}
-const categoryHelp={'Alle':'Dein kompletter Überblick','Tour & Alltag':'Zur Arbeit oder am Wochenende','Trail':'Raus ins Grüne, abseits der Straße','All Mountain':'Höhenmeter & wechselnder Untergrund','Enduro':'Für erfahrene, sportliche Fahrer'};
-$('#categories').innerHTML=['Alle','Tour & Alltag','Trail','All Mountain','Enduro'].map(c=>`<button type="button" data-category="${esc(c)}" aria-pressed="${c==='Alle'}" class="${c==='Alle'?'active':''}">${iconFor(c)}<strong>${esc(categoryLabels[c])}</strong><span>${esc(categoryHelp[c])}</span></button>`).join('');
-$('#categories').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{amplifierOnly=false;category=b.dataset.category;$('#categories').querySelectorAll('button').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',x===b?'true':'false');});render();}));
-$('#size').addEventListener('change',render);$('#sort').addEventListener('change',render);
-$('#detail .close').addEventListener('click',()=>$('#detail').close());$('#detail').addEventListener('click',e=>{if(e.target===$('#detail')){const r=$('#detail').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('#detail').close();}});$('#detail').addEventListener('close',()=>lastFocus?.focus());
-const featured=[BIKES.find(p=>p.model==='Hybrid Tour 5.1'&&p.variant==='Core'),BIKES.find(p=>p.model==='Epium All Mountain 5.9'&&p.variant==='Core')];
-$('#featured').innerHTML=featured.map((p,i)=>`<article class="featured-offer"><span class="featured-label">${i===0?'DEIN ALLTAGSBEGLEITER':'DEIN ANGEBOT FÜR DIE BERGE'}</span><h2>${i===0?'Dein Alltag kann mehr.':'Für deine Bergmomente.'}</h2><img src="${p.image}" alt="${esc(p.model)}"><p class="featured-model">${esc(p.model)} · ${esc(p.variant)}</p>${priceBlock(p)}${p.bonus?'<p class="featured-bonus"><strong>+ Zusatzakku gratis</strong><span>720 Wh · im Wert von 800 €</span></p>':'<p class="featured-bonus"><strong>Dein Preisvorteil</strong><span>'+euro(p.uvp-p.price)+' gegenüber UVP</span></p>'}<button class="button dark" data-id="${p.id}">Dieses Angebot ansehen →</button></article>`).join('');
-$('#featured').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>openBike(Number(b.dataset.id))));
-$('#show-amplifier').addEventListener('click',()=>{amplifierOnly=true;category='Alle';$('#size').value='all';$('#categories').querySelectorAll('button').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-pressed','false');});render();$('#bikes').scrollIntoView({behavior:'smooth'});});render();
 
-const masterMap=new Map();BIKES.forEach(p=>{const key=p.model+'|'+p.variant+'|'+p.price;if(!masterMap.has(key))masterMap.set(key,{...p,count:0});masterMap.get(key).count+=p.count;});
-const MASTER=Array.from(masterMap.values()).sort((a,b)=>a.model.localeCompare(b.model,'de')||a.price-b.price);
-$('#price-table-body').innerHTML=MASTER.map(p=>`<tr><td><strong>${esc(p.model)}</strong><span>${esc(p.variant)}</span></td><td>${euro(p.uvp)}</td><td>${euro(p.price)}</td><td>${euro(p.uvp-p.price)}</td><td>${euro(p.price-100)}</td><td>${p.bonus?'720 Wh gratis':'–'}</td></tr>`).join('');
+const euro = n => new Intl.NumberFormat('de-AT', {
+  style: 'currency', currency: 'EUR',
+  minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+  maximumFractionDigits: 2
+}).format(n);
 
-$('#detail').addEventListener('click',e=>{if(e.target.closest('a[href="#lieferung"],a[href="#versicherung"]'))$('#detail').close();});
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+);
+
+// ── Group BIKES by (model, category) and collect variants ──
+const modelMap = new Map();
+
+BIKES.forEach(bike => {
+  const key = `${bike.model}|${bike.category}`;
+  if (!modelMap.has(key)) {
+    modelMap.set(key, {
+      model: bike.model,
+      category: bike.category,
+      image: bike.image,
+      source: bike.source,
+      bonus: false,
+      isNew: bike.new,
+      motorShort: bike.motorShort,
+      batteryShort: bike.batteryShort,
+      torque: bike.torque || null,
+      variants: new Map()
+    });
+  }
+
+  const group = modelMap.get(key);
+  group.bonus = group.bonus || bike.bonus;
+
+  // One variant entry per (name, price) — merge colors/sizes
+  const vKey = `${bike.variant}|${bike.price}`;
+  if (!group.variants.has(vKey)) {
+    group.variants.set(vKey, {
+      name: bike.variant,
+      price: bike.price,
+      uvp: bike.uvp,
+      sizes: {},
+      colors: []
+    });
+  }
+  const v = group.variants.get(vKey);
+  bike.options.forEach(opt => {
+    if (!v.colors.includes(opt.color)) v.colors.push(opt.color);
+    Object.entries(opt.sizes).forEach(([sz, n]) => {
+      v.sizes[sz] = (v.sizes[sz] || 0) + n;
+    });
+  });
+});
+
+// ── Helper: size chips ──
+function sizeChips(sizes) {
+  return ['S', 'M', 'L', 'XL']
+    .filter(s => sizes[s])
+    .map(s => `<span class="size-chip">${s}&thinsp;·&thinsp;${sizes[s]}×</span>`)
+    .join('');
+}
+
+// ── Helper: pre-filled mailto ──
+function makeMailto(model, variant) {
+  const subject = `Raiffeisen Bike-Aktion 2026 – ${model} ${variant.name}`;
+  const colorStr = variant.colors.join(' / ');
+  const sizeStr = Object.entries(variant.sizes).filter(([, n]) => n > 0).map(([s]) => s).join(' / ');
+  const body =
+    `Hallo NOX-Team,\n\n` +
+    `ich bin Raiffeisen-Mitarbeiter / Familienmitglied und interessiere mich für:\n\n` +
+    `Modell:       ${model}\n` +
+    `Ausführung:   ${variant.name}\n` +
+    `Aktionspreis: ${euro(variant.price)} inkl. 20 % USt.\n` +
+    `Farbe:        ${colorStr}\n` +
+    `Größe:        (Wunsch eintragen – verfügbar: ${sizeStr})\n\n` +
+    `Bitte bestätigt Verfügbarkeit, Ausstattung und Liefermöglichkeit.\n\n` +
+    `Name:\nTelefon (optional):\n\nVielen Dank!`;
+  return `mailto:info@noxcycles.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// ── Render model cards ──
+const gridIds = {
+  'Tour & Alltag': 'grid-tour',
+  'Trail':         'grid-trail',
+  'All Mountain':  'grid-am',
+  'Enduro':        'grid-enduro'
+};
+
+modelMap.forEach(group => {
+  const gridId = gridIds[group.category];
+  if (!gridId) return;
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+
+  const variants = Array.from(group.variants.values());
+
+  // Spec summary line (strip footnote markers)
+  const clean = s => s.replace(/[¹²³⁴⁵]/g, '').trim();
+  const specParts = [group.motorShort, group.batteryShort].map(clean);
+  if (group.torque) specParts.push(clean(group.torque));
+
+  const variantHTML = variants.map(v => `
+    <div class="variant-row">
+      <div>
+        <p class="variant-name">${esc(v.name)}</p>
+        <div class="variant-price-line">
+          <span class="variant-price">${euro(v.price)}</span>
+          <span class="variant-saving">statt <s>${euro(v.uvp)}</s>&ensp;<strong>sparst ${euro(v.uvp - v.price)}</strong></span>
+        </div>
+        <div class="variant-sizes">${sizeChips(v.sizes)}</div>
+      </div>
+      <a class="btn-inquire" href="${makeMailto(group.model, v)}">Anfragen →</a>
+    </div>
+  `).join('');
+
+  const card = document.createElement('article');
+  card.className = 'bike-card';
+  card.innerHTML = `
+    <div class="card-img-wrap">
+      <img src="${esc(group.image)}" alt="${esc(group.model)}" loading="lazy">
+      <div class="card-badges">
+        ${group.isNew  ? '<span class="badge badge-new">Neu 2026</span>' : ''}
+        ${group.bonus ? '<span class="badge badge-bonus">+ Zusatzakku</span>' : ''}
+      </div>
+    </div>
+    <div class="card-body">
+      <h3 class="card-model">${esc(group.model)}</h3>
+      <p class="card-specs">${specParts.map(esc).join(' · ')}</p>
+      <div class="variant-list">${variantHTML}</div>
+      ${group.bonus ? `<p class="bonus-note">⚡ RS-Bonus: 720-Wh-Zusatzakku im Wert von 800 € gratis</p>` : ''}
+      <a class="nox-link" href="${esc(group.source)}" target="_blank" rel="noopener">Technische Details bei NOX ↗</a>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+
+// ── Price table ──
+const masterMap = new Map();
+BIKES.forEach(p => {
+  const key = `${p.model}|${p.variant}|${p.price}`;
+  if (!masterMap.has(key)) masterMap.set(key, { ...p, count: 0 });
+  masterMap.get(key).count += p.count;
+});
+
+const MASTER = Array.from(masterMap.values())
+  .sort((a, b) => a.model.localeCompare(b.model, 'de') || a.price - b.price);
+
+document.getElementById('price-table-body').innerHTML = MASTER.map(p => `
+  <tr>
+    <td><strong>${esc(p.model)}</strong><span>${esc(p.variant)}</span></td>
+    <td>${euro(p.uvp)}</td>
+    <td class="price-active">${euro(p.price)}</td>
+    <td class="saving">${euro(p.uvp - p.price)}</td>
+    <td>${euro(p.price - 100)}</td>
+    <td>${p.bonus ? '720 Wh gratis' : '–'}</td>
+  </tr>
+`).join('');
